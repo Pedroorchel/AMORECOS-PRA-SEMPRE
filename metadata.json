@@ -1,0 +1,8 @@
+{
+  "name": "Nossa História — Edição Editorial",
+  "description": "Um site romântico com estética de revista editorial dedicado à nossa história, memórias, carta aberta e planos futuros.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
