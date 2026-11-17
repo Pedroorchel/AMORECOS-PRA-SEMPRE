@@ -38,6 +38,7 @@ export default function App() {
       : null
   );
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(() =>
@@ -46,6 +47,30 @@ export default function App() {
 
   const synthRef = useRef<RomanticPianoSynth | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pré-carrega os áudios das músicas em segundo plano para início instantâneo
+  useEffect(() => {
+    const urls = NOSSA_HISTORIA.nossasPlaylists
+      .flatMap((pl) => pl.faixas)
+      .map((f) => f.audioUrl?.trim())
+      .filter((url): url is string => Boolean(url));
+
+    const preloadedAudioList: HTMLAudioElement[] = [];
+
+    // Carrega prioritariamente as primeiras músicas da playlist
+    for (const url of urls.slice(0, 5)) {
+      const audio = new Audio();
+      audio.preload = 'auto';
+      audio.src = url;
+      preloadedAudioList.push(audio);
+    }
+
+    return () => {
+      for (const a of preloadedAudioList) {
+        a.src = '';
+      }
+    };
+  }, []);
 
   const { scrollYProgress } = useScroll();
   const smoothProgress = useSpring(scrollYProgress, {
@@ -93,30 +118,73 @@ export default function App() {
       }
 
       if (customUrl) {
-        const audio = new Audio(customUrl);
+        setIsLoadingAudio(true);
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.src = customUrl;
         audio.muted = muted;
         audio.volume = 0.7;
+
+        audio.addEventListener('canplay', () => {
+          setIsLoadingAudio(false);
+        });
+
+        audio.addEventListener('playing', () => {
+          setIsLoadingAudio(false);
+          setIsPlaying(true);
+        });
+
+        audio.addEventListener('waiting', () => {
+          setIsLoadingAudio(true);
+        });
+
         audio.addEventListener('loadedmetadata', () => {
           if (Number.isFinite(audio.duration) && audio.duration > 0) {
             setDurationSeconds(Math.floor(audio.duration));
           }
         });
+
         audio.addEventListener('timeupdate', () => {
           setElapsedSeconds(Math.floor(audio.currentTime));
         });
+
         audio.addEventListener('ended', () => {
           setIsPlaying(false);
           setElapsedSeconds(0);
+          setIsLoadingAudio(false);
         });
+
+        audio.addEventListener('error', () => {
+          setIsLoadingAudio(false);
+          // Fallback instantâneo ao sintetizador suave para não travar a experiência
+          if (synthRef.current) {
+            setDurationSeconds(parseDurationToSeconds(track.faixa.duracao));
+            synthRef.current.setMuted(muted);
+            synthRef.current.start(track.faixa.temaIndex ?? 0);
+            setIsPlaying(true);
+          }
+        });
+
         audioElRef.current = audio;
-        void audio.play();
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              setIsLoadingAudio(false);
+              setIsPlaying(true);
+            })
+            .catch(() => {
+              // Se autoplay bloqueado
+              setIsLoadingAudio(false);
+            });
+        }
       } else if (synthRef.current) {
         setDurationSeconds(parseDurationToSeconds(track.faixa.duracao));
         synthRef.current.setMuted(muted);
         synthRef.current.start(track.faixa.temaIndex ?? 0);
+        setIsLoadingAudio(false);
+        setIsPlaying(true);
       }
-
-      setIsPlaying(true);
     },
     []
   );
@@ -247,6 +315,7 @@ export default function App() {
           <SoundtrackAndPlans
             activeTrack={activeTrack}
             isPlaying={isPlaying}
+            isLoadingAudio={isLoadingAudio}
             isMuted={isMuted}
             elapsedSeconds={elapsedSeconds}
             durationSeconds={durationSeconds}

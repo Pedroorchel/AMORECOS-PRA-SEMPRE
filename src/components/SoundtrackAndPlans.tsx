@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Disc3,
   ExternalLink,
+  Loader2,
   Music2,
   Pause,
   Play,
@@ -32,6 +33,7 @@ export interface ActiveTrackState {
 interface SoundtrackAndPlansProps {
   activeTrack: ActiveTrackState | null;
   isPlaying: boolean;
+  isLoadingAudio?: boolean;
   isMuted: boolean;
   elapsedSeconds: number;
   durationSeconds: number;
@@ -85,6 +87,7 @@ function formatSeconds(sec: number): string {
 export function SoundtrackAndPlans({
   activeTrack,
   isPlaying,
+  isLoadingAudio = false,
   isMuted,
   elapsedSeconds,
   durationSeconds,
@@ -317,10 +320,21 @@ export function SoundtrackAndPlans({
                   <button
                     type="button"
                     onClick={onTogglePlay}
-                    aria-label={isPlaying ? 'Pausar música' : 'Tocar música'}
+                    aria-label={
+                      isLoadingAudio
+                        ? 'Carregando música...'
+                        : isPlaying
+                        ? 'Pausar música'
+                        : 'Tocar música'
+                    }
                     className="inline-flex items-center justify-center gap-2 px-5 h-11 md:h-10 bg-[#C5A059] text-[#2C2A29] text-xs tracking-[0.16em] uppercase font-bold hover:bg-[#FAF7F2] transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    {isPlaying ? (
+                    {isLoadingAudio ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2C2A29]" aria-hidden="true" />
+                        <span>Carregando...</span>
+                      </>
+                    ) : isPlaying ? (
                       <>
                         <Pause className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>Pausar</span>
@@ -535,7 +549,8 @@ export function SoundtrackAndPlans({
                 <ul className="mt-5 border-t border-[#E5DEC9] divide-y divide-[#E5DEC9]/80">
                   {playlist.faixas.map((faixa) => {
                     const isThisTrack = faixaAtual?.faixa.id === faixa.id;
-                    const isThisPlaying = isThisTrack && isPlaying;
+                    const isThisLoading = isThisTrack && isLoadingAudio;
+                    const isThisPlaying = isThisTrack && isPlaying && !isLoadingAudio;
 
                     return (
                       <li
@@ -552,13 +567,15 @@ export function SoundtrackAndPlans({
                           <div className="flex items-center gap-3 min-w-0">
                             <span
                               className={`w-9 h-9 md:w-8 md:h-8 flex items-center justify-center border shrink-0 transition-colors ${
-                                isThisPlaying
+                                isThisPlaying || isThisLoading
                                   ? 'bg-[#2C2A29] border-[#2C2A29] text-[#C5A059]'
                                   : 'border-[#E5DEC9] bg-[#FFFFFF] text-[#2C2A29]'
                               }`}
                               aria-hidden="true"
                             >
-                              {isThisPlaying ? (
+                              {isThisLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : isThisPlaying ? (
                                 <Pause className="w-3.5 h-3.5" />
                               ) : (
                                 <Play className="w-3.5 h-3.5 ml-0.5" />
